@@ -8,6 +8,9 @@ A tts provider module that integrates with Google Cloud Text-to-Speech API and i
 #### [mod_deepgram_transcribe](modules/mod_deepgram_transcribe/README.md)
 Adds a Freeswitch API call to start (or stop) real-time transcription on a Freeswitch channel using deepgram streaming transcription.
 
+#### [mod_bodhi_transcribe](modules/mod_bodhi_transcribe/README.md)
+Adds a Freeswitch API call to start (or stop) real-time transcription on a Freeswitch channel using navana streaming transcription.
+
 
 # Installation
 
