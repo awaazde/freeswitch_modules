@@ -367,11 +367,11 @@ extern "C"
 
     bodhi::AudioPipe *pAudioPipe = static_cast<bodhi::AudioPipe *>(tech_pvt->pAudioPipe);
 
-    if (pAudioPipe) {
+    /*if (pAudioPipe) {
         pAudioPipe->sendEOS();
     }else{
       switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_ERROR, "can't send EOS message\n");
-    }
+    }*/
 
     if (pAudioPipe)
       reaper(tech_pvt);
