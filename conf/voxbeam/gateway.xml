@@ -1,0 +1,12 @@
+<include>
+    <gateway name="voxbeam">
+        <param name="username" value="1002"/>
+        <param name="password" value="123456"/>
+        <param name="from-domain" value="{}"/>
+        <param name="proxy" value="108.59.2.133"/>
+        <!--<param name="sip-port" value="5061" />-->
+        <param name="caller-id-in-from" value="true"/>
+        <param name="context" value="public"/>
+        <param name="register" value="false"/>
+    </gateway>
+</include>
