@@ -1,0 +1,7 @@
+# Local Settings
+.vscode
+.DS_Store
+
+# Makefiles
+Makefile
+Makefile.in
