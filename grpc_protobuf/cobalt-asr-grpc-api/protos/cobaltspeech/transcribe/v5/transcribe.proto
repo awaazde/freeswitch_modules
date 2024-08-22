@@ -1,0 +1,534 @@
+// Copyright (2022--present) Cobalt Speech and Language Inc.
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/**
+   Cobalt ASR is a state-of-the-art speech recognition system, which uses deep-learning models for fast, accurate speech recognition.
+*/
+syntax = "proto3";
+
+package cobaltspeech.transcribe.v5;
+
+import "google/api/annotations.proto";
+
+// Service that implements the Cobalt Transcribe Speech Recognition API.
+service TranscribeService {
+  // Queries the version of the server.
+  rpc Version(VersionRequest) returns (VersionResponse) {
+    option (google.api.http) = {get: "/api/transcribe/v5/version"};
+  }
+
+  // Retrieves a list of available speech recognition models.
+  rpc ListModels(ListModelsRequest) returns (ListModelsResponse) {
+    option (google.api.http) = {get: "/api/transcribe/v5/listmodels"};
+  }
+
+  // Performs bidirectional streaming speech recognition. Receive results while
+  // sending audio. This method is only available via GRPC and not via
+  // HTTP+JSON. However, a web browser may use websockets to use this service.
+  rpc StreamingRecognize(stream StreamingRecognizeRequest) returns (stream StreamingRecognizeResponse) {
+    option (google.api.http) = {get: "/api/transcribe/v5/stream"};
+  }
+
+  // Compiles recognition context information, such as a specialized list of
+  // words or phrases, into a compact, efficient form to send with subsequent
+  // `StreamingRecognize` requests to customize speech recognition. For example,
+  // a list of contact names may be compiled in a mobile app and sent with each
+  // recognition request so that the app user's contact names are more likely to
+  // be recognized than arbitrary names. This pre-compilation ensures that there
+  // is no added latency for the recognition request. It is important to note
+  // that in order to compile context for a model, that model has to support
+  // context in the first place, which can be verified by checking its
+  // `ModelAttributes.ContextInfo` obtained via the `ListModels` method. Also,
+  // the compiled data will be model specific; that is, the data compiled for
+  // one model will generally not be usable with a different model.
+  rpc CompileContext(CompileContextRequest) returns (CompileContextResponse) {
+    option (google.api.http) = {
+      post: "/api/transcribe/v5/compilecontext"
+      body: "*"
+    };
+  }
+}
+
+// The top-level message sent by the client for the `Version` method.
+message VersionRequest {}
+
+// The message sent by the server for the `Version` method.
+message VersionResponse {
+  // Version of the server handling these requests.
+  string version = 1;
+}
+
+// The top-level message sent by the client for the `ListModels` method.
+message ListModelsRequest {}
+
+// The message returned to the client by the `ListModels` method.
+message ListModelsResponse {
+  // List of models available for use that match the request.
+  repeated Model models = 1;
+}
+
+// The top-level messages sent by the client for the `StreamingRecognize`
+// method. In this streaming call, multiple `StreamingRecognizeRequest` messages
+// should be sent. The first message must contain a `RecognitionConfig` message
+// only, and all subsequent messages must contain `RecognitionAudio` only. All
+// `RecognitionAudio` messages must contain non-empty audio. If audio content is
+// empty, the server may choose to interpret it as end of stream and stop
+// accepting any further messages.
+message StreamingRecognizeRequest {
+  oneof request {
+    RecognitionConfig config = 1;
+    RecognitionAudio audio = 2;
+  }
+}
+
+// The messages returned by the server for the `StreamingRecognize` request.
+// Multiple messages of this type will be delivered on the stream, for multiple
+// results, as soon as results are available from the audio submitted so far. If
+// the audio has multiple channels, the results of all channels will be
+// interleaved. Results of each individual channel will be chronological.
+// However, there is no guarantee of the order of results across channels.
+//
+// Clients should process both the `result` and `error` fields in each message.
+// At least one of these fields will be present in the message. If both `result`
+// and `error` are present, the result is still valid.
+message StreamingRecognizeResponse {
+  // A new recognition result. This field will be unset if a new result is not
+  // yet available.
+  RecognitionResult result = 1;
+
+  // A non-fatal error message. If a server encountered a non-fatal error when
+  // processing the recognition request, it will be returned in this message.
+  // The server will continue to process audio and produce further results.
+  // Clients can continue streaming audio even after receiving these messages.
+  // This error message is meant to be informational.
+  //
+  // An example of when these errors maybe produced: audio is sampled at a lower
+  // rate than expected by model, producing possibly less accurate results.
+  //
+  // This field will be unset if there is no error to report.
+  RecognitionError error = 2;
+}
+
+// The top-level message sent by the client for the `CompileContext` request. It
+// contains a list of phrases or words, paired with a context token included in
+// the model being used. The token specifies a category such as "menu_item",
+// "airport", "contact", "product_name" etc. The context token is used to
+// determine the places in the recognition output where the provided list of
+// phrases or words may appear. The allowed context tokens for a given model can
+// be found in its `ModelAttributes.ContextInfo` obtained via the `ListModels`
+// method.
+message CompileContextRequest {
+  // Unique identifier of the model to compile the context information for. The
+  // model chosen needs to support context which can be verified by checking its
+  // `ModelAttributes.ContextInfo` obtained via `ListModels`.
+  string model_id = 1;
+
+  // The token that is associated with the provided list of phrases or words
+  // (e.g "menu_item", "airport" etc.). Must be one of the tokens included in
+  // the model being used, which can be retrieved by calling the `ListModels`
+  // method.
+  string token = 2;
+
+  // List of phrases and/or words to be compiled.
+  repeated ContextPhrase phrases = 3;
+}
+
+// The message returned to the client by the `CompileContext` method.
+message CompileContextResponse {
+  // Context information in a compact form that is efficient for use in
+  // subsequent recognition requests. The size of the compiled form will depend
+  // on the amount of text that was sent for compilation. For 1000 words it's
+  // generally less than 100 kilobytes.
+  CompiledContext context = 1;
+}
+
+// Configuration for setting up a Recognizer
+message RecognitionConfig {
+  // Unique identifier of the model to use, as obtained from a `Model` message.
+  string model_id = 1;
+
+  // Format of the audio to be sent for recognition.
+  //
+  // Depending on how they are configured, server instances of this service may
+  // not support all the formats provided in the API. One format that is
+  // guaranteed to be supported is the RAW format with little-endian 16-bit
+  // signed samples with the sample rate matching that of the model being
+  // requested.
+  oneof audio_format {
+    // Audio is raw data without any headers
+    AudioFormatRAW audio_format_raw = 2;
+
+    // Audio has a self-describing header. Headers are expected to be sent at
+    // the beginning of the entire audio file/stream, and not in every
+    // `RecognitionAudio` message.
+    //
+    // The default value of this type is AUDIO_FORMAT_HEADERED_UNSPECIFIED. If
+    // this value is used, the server may attempt to detect the format of the
+    // audio. However, it is recommended that the exact format be specified.
+    AudioFormatHeadered audio_format_headered = 3;
+  }
+
+  // This is an optional field. If the audio has multiple channels, this field
+  // can be configured with the list of channel indices that should be
+  // considered for the recognition task. These channels are 0-indexed.
+  //
+  // Example: `[0]` for a mono file, `[0, 1]` for a stereo file.
+  // Example: `[1]` to only transcribe the second channel of a stereo file.
+  //
+  // If this field is not set, all the channels in the audio will be processed.
+  //
+  // Channels that are present in the audio may be omitted, but it is an error
+  // to include a channel index in this field that is not present in the audio.
+  // Channels may be listed in any order but the same index may not be repeated
+  // in this list.
+  //
+  // BAD: `[0, 2]` for a stereo file; BAD: `[0, 0]` for a mono file.
+  repeated uint32 selected_audio_channels = 4;
+
+  // This is an optional field. It can be used to indicate that the audio being
+  // streamed to the recognizer is offset from the original stream by the
+  // provided duration in milliseconds. This offset will be added to all
+  // timestamps in results returned by the recognizer.
+  //
+  // The default value of this field is 0ms, so the timestamps in the
+  // recognition result will not be modified.
+  //
+  // Example use case where this field can be helpful: if a recognition session
+  // was interrupted and audio needs to be sent to a new session from the point
+  // where the session was previously interrupted, the offset could be set to
+  // the point where the interruption had happened.
+  uint64 audio_time_offset_ms = 5;
+
+  // This is an optional field. If this is set to `true`, each result will
+  // include word level details of the transcript. These details are specified
+  // in the `WordDetails` message. If set to `false`, no word-level details will
+  // be returned. The default is `false`.
+  bool enable_word_details = 6;
+
+  // This is an optional field. If this is set to true, each result will include
+  // a confusion network. If set to `false`, no confusion network will be
+  // returned. The default is `false`. If the model being used does not support
+  // returning a confusion network, this field will have no effect. Tokens in
+  // the confusion network always correspond to tokens in the `transcript_raw`
+  // returned.
+  bool enable_confusion_network = 7;
+
+  // This is an optional field. If there is any metadata associated with the
+  // audio being sent, use this field to provide it to the recognizer. The
+  // server may record this metadata when processing the request. The server
+  // does not use this field for any other purpose.
+  RecognitionMetadata metadata = 8;
+
+  // This is an optional field for providing any additional context information
+  // that may aid speech recognition. This can also be used to add
+  // out-of-vocabulary words to the model or boost recognition of specific
+  // proper names or commands. Context information must be pre-compiled via the
+  // `CompileContext()` method.
+  RecognitionContext context = 9;
+}
+
+// Details of audio in raw format
+message AudioFormatRAW {
+  // Encoding of the samples. It must be specified explicitly and using the
+  // default value of `AUDIO_ENCODING_UNSPECIFIED` will result in an error.
+  AudioEncoding encoding = 1;
+
+  // Bit depth of each sample (e.g. 8, 16, 24, 32, etc.). This is a required
+  // field.
+  uint32 bit_depth = 2;
+
+  // Byte order of the samples. This field must be set to a value other than
+  // `BYTE_ORDER_UNSPECIFIED` when the `bit_depth` is greater than 8.
+  ByteOrder byte_order = 3;
+
+  // Sampling rate in Hz. This is a required field.
+  uint32 sample_rate = 4;
+
+  // Number of channels present in the audio. E.g.: 1 (mono), 2 (stereo), etc.
+  // This is a required field.
+  uint32 channels = 5;
+}
+
+// Byte order of multi-byte data
+enum ByteOrder {
+  // BYTE_ORDER_UNSPECIFIED is the default value of this type.
+  BYTE_ORDER_UNSPECIFIED = 0;
+
+  // Little Endian byte order
+  BYTE_ORDER_LITTLE_ENDIAN = 1;
+
+  // Big Endian byte order
+  BYTE_ORDER_BIG_ENDIAN = 2;
+}
+
+// The encoding of the audio data to be sent for recognition.
+enum AudioEncoding {
+  // AUDIO_ENCODING_UNSPECIFIED is the default value of this type and will
+  // result in an error.
+  AUDIO_ENCODING_UNSPECIFIED = 0;
+
+  // PCM signed-integer
+  AUDIO_ENCODING_SIGNED = 1;
+
+  // PCM unsigned-integer
+  AUDIO_ENCODING_UNSIGNED = 2;
+
+  // PCM IEEE-Float
+  AUDIO_ENCODING_IEEE_FLOAT = 3;
+
+  // G.711 mu-law
+  AUDIO_ENCODING_ULAW = 4;
+
+  // G.711 a-law
+  AUDIO_ENCODING_ALAW = 5;
+}
+
+enum AudioFormatHeadered {
+  // AUDIO_FORMAT_HEADERED_UNSPECIFIED is the default value of this type.
+  AUDIO_FORMAT_HEADERED_UNSPECIFIED = 0;
+
+  // WAV with RIFF headers
+  AUDIO_FORMAT_HEADERED_WAV = 1;
+
+  // MP3 format with a valid frame header at the beginning of data
+  AUDIO_FORMAT_HEADERED_MP3 = 2;
+
+  // FLAC format
+  AUDIO_FORMAT_HEADERED_FLAC = 3;
+
+  // Opus format with OGG header
+  AUDIO_FORMAT_HEADERED_OGG_OPUS = 4;
+}
+
+// Metadata associated with the audio to be recognized.
+message RecognitionMetadata {
+  // Any custom metadata that the client wants to associate with the recording.
+  // This could be a simple string (e.g. a tracing ID) or structured data
+  // (e.g. JSON).
+  string custom_metadata = 1;
+}
+
+// A collection of additional context information that may aid speech
+// recognition. This can be used to add out-of-vocabulary words to the model or
+// to boost recognition of specific proper names or commands.
+message RecognitionContext {
+  // List of compiled context information, with each entry being compiled from a
+  // list of words or phrases using the `CompileContext` method.
+  repeated CompiledContext compiled = 1;
+}
+
+// Context information in a compact form that is efficient for use in subsequent
+// recognition requests. The size of the compiled form will depend on the amount
+// of text that was sent for compilation. For 1000 words it's generally less
+// than 100 kilobytes.
+message CompiledContext {
+  // The context information compiled by the `CompileContext` method.
+  bytes data = 1;
+}
+
+// A phrase or word that is to be compiled into context information that can be
+// later used to improve speech recognition during a `StreamingRecognize` call.
+// Along with the phrase or word itself, there is an optional boost parameter
+// that can be used to boost the likelihood of the phrase or word in the
+// recognition output.
+message ContextPhrase {
+  // The actual phrase or word.
+  string text = 1;
+
+  // This is an optional field. The boost factor is a positive number which is
+  // used to multiply the probability of the phrase or word appearing in the
+  // output. This setting can be used to differentiate between similar sounding
+  // words, with the desired word given a bigger boost factor.
+  //
+  // By default, all phrases or words provided in the `RecongitionContext` are
+  // given an equal probability of occurring. Boost factors larger than 1 make
+  // the phrase or word more probable and boost factors less than 1 make it less
+  // likely. A boost factor of 2 corresponds to making the phrase or word twice
+  // as likely, while a boost factor of 0.5 means half as likely.
+  float boost = 2;
+}
+
+// Audio to be sent to the recognizer
+message RecognitionAudio {
+  bytes data = 1;
+}
+
+// Description of a Transcribe Model
+message Model {
+  // Unique identifier of the model. This identifier is used to choose the model
+  // that should be used for recognition, and is specified in the
+  // `RecognitionConfig` message.
+  string id = 1;
+
+  // Model name. This is a concise name describing the model, and may be
+  // presented to the end-user, for example, to help choose which model to use
+  // for their recognition task.
+  string name = 2;
+
+  // Model attributes
+  ModelAttributes attributes = 3;
+}
+
+// Attributes of a Transcribe Model
+message ModelAttributes {
+  // Audio sample rate(native) supported by the model
+  uint32 sample_rate = 1;
+
+  // Attributes specifc to supporting recognition context.
+  ContextInfo context_info = 2;
+
+  // Audio sample rates other than the model's native sample rate(sample_rate) that can be accommodated
+  repeated uint32 supported_sample_rates = 3;
+}
+
+// Model information specifc to supporting recognition context.
+message ContextInfo {
+  // If this is set to true, the model supports taking context information into
+  // account to aid speech recognition. The information may be sent with with
+  // recognition requests via RecognitionContext inside RecognitionConfig.
+  bool supports_context = 1;
+
+  // A list of tokens (e.g "name", "airport" etc.) that serve has placeholders
+  // in the model where a client provided list of phrases or words may be used
+  // to aid speech recognition and produce the exact desired recognition output.
+  repeated string allowed_context_tokens = 2;
+}
+
+// A recognition result corresponding to a portion of audio.
+message RecognitionResult {
+  // An n-best list of recognition hypotheses alternatives
+  repeated RecognitionAlternative alternatives = 1;
+
+  // If this is set to true, it denotes that the result is an interim partial
+  // result, and could change after more audio is processed. If unset, or set to
+  // false, it denotes that this is a final result and will not change.
+  //
+  // Servers are not required to implement support for returning partial
+  // results, and clients should generally not depend on their availability.
+  bool is_partial = 2;
+
+  // If `enable_confusion_network` was set to true in the `RecognitionConfig`,
+  // and if the model supports it, a confusion network will be available in the
+  // results.
+  RecognitionConfusionNetwork cnet = 3;
+
+  // Channel of the audio file that this result was transcribed from. Channels
+  // are 0-indexed, so the for mono audio data, this value will always be 0.
+  uint32 audio_channel = 4;
+}
+
+// Developer-facing error message about a non-fatal recognition issue.
+message RecognitionError {
+  string message = 1;
+}
+
+// A recognition hypothesis
+message RecognitionAlternative {
+  // Text representing the transcription of the words that the user spoke.
+  //
+  // The transcript will be formatted according to the servers formatting
+  // configuration. If you want the raw transcript, please see the field
+  // `transcript_raw`. If the server is configured to not use any formatting,
+  // then this field will contain the raw transcript.
+  //
+  // As an example, if the spoken utterance was "four people", and the server
+  // was configured to format numbers, this field would be set to "4 people".
+  string transcript_formatted = 1;
+
+  // Text representing the transcription of the words that the user spoke,
+  // without any formatting applied. If you want the formatted transcript,
+  // please see the field `transcript_formatted`.
+  //
+  // As an example, if the spoken utterance was `four people`, this field would
+  // be set to "FOUR PEOPLE".
+  string transcript_raw = 2;
+
+  // Time offset in milliseconds relative to the beginning of audio received by
+  // the recognizer and corresponding to the start of this utterance.
+  uint64 start_time_ms = 3;
+
+  // Duration in milliseconds of the current utterance in the spoken audio.
+  uint64 duration_ms = 4;
+
+  // Confidence estimate between 0 and 1. A higher number represents a higher
+  // likelihood of the output being correct.
+  double confidence = 5;
+
+  // Word-level details corresponding to the transcripts. This is available only
+  // if `enable_word_details` was set to `true` in the `RecognitionConfig`.
+  WordDetails word_details = 6;
+}
+
+message WordDetails {
+  // Word-level information corresponding to the `transcript_formatted` field.
+  repeated WordInfo formatted = 1;
+
+  // Word-level information corresponding to the `transcript_raw` field.
+  repeated WordInfo raw = 2;
+}
+
+// Word level details for recognized words in a transcript
+message WordInfo {
+  // The actual word in the text
+  string word = 1;
+
+  // Confidence estimate between 0 and 1. A higher number represents a higher
+  // likelihood that the word was correctly recognized.
+  double confidence = 2;
+
+  // Time offset in milliseconds relative to the beginning of audio received by
+  // the recognizer and corresponding to the start of this spoken word.
+  uint64 start_time_ms = 3;
+
+  // Duration in milliseconds of the current word in the spoken audio.
+  uint64 duration_ms = 4;
+}
+
+// Confusion network in recognition output
+message RecognitionConfusionNetwork {
+  repeated ConfusionNetworkLink links = 1;
+}
+
+// A Link inside a confusion network
+message ConfusionNetworkLink {
+  // Time offset in milliseconds relative to the beginning of audio received by
+  // the recognizer and corresponding to the start of this link
+  uint64 start_time_ms = 1;
+
+  // Duration in milliseconds of the current link in the confusion network
+  uint64 duration_ms = 2;
+
+  // Arcs between this link
+  repeated ConfusionNetworkArc arcs = 3;
+}
+
+// An Arc inside a Confusion Network Link
+message ConfusionNetworkArc {
+  // Word in the recognized transcript
+  string word = 1;
+
+  // Confidence estimate between 0 and 1. A higher number represents a higher
+  // likelihood that the word was correctly recognized.
+  double confidence = 2;
+
+  // Features related to this arc
+  ConfusionNetworkArcFeatures features = 3;
+}
+
+// Features related to confusion network arcs
+message ConfusionNetworkArcFeatures {
+  // A map of features that are used for recalculating confidence scores of this
+  // confusion network arc
+  map<string, double> confidence = 1;
+}
