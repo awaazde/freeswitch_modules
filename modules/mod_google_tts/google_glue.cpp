@@ -22,6 +22,7 @@ using google::cloud::texttospeech::v1::AudioEncoding;
 std::shared_ptr<grpc::ChannelCredentials> creds;
 
 static std::unordered_set<std::string> setVoices;
+namespace fs = std::filesystem;
 
 extern "C" {
 	switch_status_t google_speech_load() {
