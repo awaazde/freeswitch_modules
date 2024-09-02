@@ -115,7 +115,12 @@ static switch_status_t speech_read_tts(switch_speech_handle_t *sh, void *data, s
 
 static void text_param_tts(switch_speech_handle_t *sh, char *param, const char *val)
 {
-
+	google_t *google = (google_t *) sh->private_info;
+	assert(google != NULL);
+	if(!strcmp(param, "tts_audio_location") && val[0] != '\0') {
+			google->audio_location = strdup(val);
+			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "The tts audio will be stored at: %s", val);
+	}
 }
 
 static void numeric_param_tts(switch_speech_handle_t *sh, char *param, int val)
