@@ -92,9 +92,20 @@ int AudioPipe::lws_callback(struct lws *wsi,
             ap->m_vhd = vhd;
             ap->m_state = LWS_CLIENT_CONNECTED;
             ap->m_callback(ap->m_uuid.c_str(), AudioPipe::CONNECT_SUCCESS, NULL, ap->isFinished());
-
+            bool parse_number = true;
+	          bool exclude_partial = true;
             // Construct the JSON string
-            std::string json = "{\"config\": {\"sample_rate\": " + std::to_string(ap->m_sampleRate)  + ", \"transaction_id\": \"" + ap->m_uuid.c_str() + "\", \"model\": \"" + ap->m_modelName.c_str() + "\", \"parse_number\": \"True\"}}";
+            std::string json = 
+                          "{"
+                              "\"config\": {"
+                                  "\"sample_rate\": " + std::to_string(ap->m_sampleRate) + ", "
+                                  "\"transaction_id\": \"" + ap->m_uuid.c_str() + "\", "
+                                  "\"model\": \"" + ap->m_modelName.c_str() + "\", "
+                                  "\"parse_number\": " + (parse_number ? "true" : "false") + ", "
+                                  "\"exclude_partial\": " + (exclude_partial ? "true" : "false") +
+                              "}"
+                          "}";
+
             // Send the JSON string
             ap->bufferForSending(json.c_str());
         }
