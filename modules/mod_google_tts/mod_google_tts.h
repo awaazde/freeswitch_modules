@@ -8,7 +8,7 @@ struct google_data {
 	int rate;
 	char *file;
 	switch_file_handle_t *fh;
-	char *audio_location;
+	char *file_path;
 };
 
 typedef struct google_data google_t;

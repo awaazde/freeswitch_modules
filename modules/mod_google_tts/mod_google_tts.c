@@ -16,26 +16,17 @@ SWITCH_MODULE_DEFINITION(mod_google_tts, mod_google_tts_load, mod_google_tts_shu
 static switch_status_t speech_open(switch_speech_handle_t *sh, const char *voice_name, int rate, int channels, switch_speech_flag_t *flags)
 {	
 	switch_uuid_t uuid;
-	char uuid_str[SWITCH_UUID_FORMATTED_LENGTH + 1];
-	char outfile[512] = "";
+	/*
+	   Removed logic of creating file from this method.
+	   At this point, we do not have access to text parameters passed to the module.
+	   Audio file is created in speech_feed_tts method.
+	*/
 	google_t *google = switch_core_alloc(sh->memory_pool, sizeof(*google));
 
 	google->voice_name = switch_core_strdup(sh->memory_pool, voice_name);
 	google->rate = rate;
 
-	/* Construct temporary file name with a new UUID */
-	switch_uuid_get(&uuid);
-	switch_uuid_format(uuid_str, &uuid);
-	switch_snprintf(outfile, sizeof(outfile), "%s%s%s.tmp.wav", SWITCH_GLOBAL_dirs.temp_dir, SWITCH_PATH_SEPARATOR, uuid_str);
-	google->file = switch_core_strdup(sh->memory_pool, outfile);
-
-	google->fh = (switch_file_handle_t *) switch_core_alloc(sh->memory_pool, sizeof(switch_file_handle_t));
-
 	sh->private_info = google;
-
-	switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "speech_open - created file %s for name %s, rate %d\n", 
-		google->file, google->voice_name, rate);
-
 	return google_speech_open(google);
 
 }
@@ -56,6 +47,16 @@ static switch_status_t speech_close(switch_speech_handle_t *sh, switch_speech_fl
 static switch_status_t speech_feed_tts(switch_speech_handle_t *sh, char *text, switch_speech_flag_t *flags)
 {
 	google_t *google = (google_t *) sh->private_info;
+
+	// Create audio file and store it at provided path
+	char outfile[512] = "";
+    switch_snprintf(outfile, sizeof(outfile), "%s", google->file_path);
+    google->file = switch_core_strdup(sh->memory_pool, outfile);
+    google->fh = (switch_file_handle_t *) switch_core_alloc(sh->memory_pool, sizeof(switch_file_handle_t));
+    sh->private_info = google;
+	switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "speech_open - created file %s for voice %s, rate %d\n", 
+		google->file, google->voice_name, google->rate);
+
 
 	switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "speech_feed_tts\n");
 	if (SWITCH_STATUS_SUCCESS != google_speech_feed_tts(google, text)) {
@@ -113,8 +114,8 @@ static void text_param_tts(switch_speech_handle_t *sh, char *param, const char *
 {
 	google_t *google = (google_t *) sh->private_info;
 	assert(google != NULL);
-	if(!strcmp(param, "tts_audio_location") && val[0] != '\0') {
-			google->audio_location = strdup(val);
+	if(!strcmp(param, "file_path") && val[0] != '\0') {
+			google->file_path = strdup(val);
 			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "The tts audio will be stored at: %s", val);
 	}
 }
