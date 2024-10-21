@@ -49,7 +49,6 @@ static switch_status_t speech_close(switch_speech_handle_t *sh, switch_speech_fl
 	if (switch_test_flag(google->fh, SWITCH_FILE_OPEN)) {
 		switch_core_file_close(google->fh);
 	}
-	unlink(google->file);
 
 	return SWITCH_STATUS_SUCCESS;
 }
@@ -94,19 +93,16 @@ static switch_status_t speech_read_tts(switch_speech_handle_t *sh, void *data, s
 
 	if (google->fh->file_interface == (void *)0) {
 		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "file [%s] has already been closed\n", google->file);
-		unlink(google->file);
 		return SWITCH_STATUS_FALSE;
 	}
 
 	if (switch_core_file_read(google->fh, data, &my_datalen) != SWITCH_STATUS_SUCCESS) {
 		switch_core_file_close(google->fh);
-		unlink(google->file);
 		return SWITCH_STATUS_FALSE;
 	}
 	*datalen = my_datalen * 2;
 	if (datalen == 0) {
 		switch_core_file_close(google->fh);
-		unlink(google->file);
 		return SWITCH_STATUS_BREAK;
 	}
 	return SWITCH_STATUS_SUCCESS;
