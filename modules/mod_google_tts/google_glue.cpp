@@ -118,16 +118,6 @@ extern "C" {
 		std::ofstream outfile(google->file, std::ofstream::binary);
 		outfile << response.audio_content();
 		outfile.close();
-		fs::path source = google->file;
-		fs::path destination = google->audio_location;
-		try {
-				// Copy file from source to destination
-				fs::copy(source, destination, fs::copy_options::overwrite_existing);
-
-				std::cout << "File copied successfully!" << std::endl;
-		} catch (const fs::filesystem_error& e) {
-				std::cerr << "Error copying file: " << e.what() << std::endl;
-		}
 
 		return SWITCH_STATUS_SUCCESS;
 	}

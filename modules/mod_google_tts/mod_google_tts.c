@@ -15,7 +15,6 @@ SWITCH_MODULE_DEFINITION(mod_google_tts, mod_google_tts_load, mod_google_tts_shu
 
 static switch_status_t speech_open(switch_speech_handle_t *sh, const char *voice_name, int rate, int channels, switch_speech_flag_t *flags)
 {	
-	switch_uuid_t uuid;
 	/*
 	   Removed logic of creating file from this method.
 	   At this point, we do not have access to text parameters passed to the module.
